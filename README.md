@@ -37,10 +37,10 @@ git clone https://github.com/ganesh-786/ChatSystem-PalmMindAI-Ganesh.git](https:
 cd ChatSystem-PamMindAI-Ganesh
 
 # Install server dependencies
-cd server
+cd backend
 npm install
 
 # Install client dependencies
-cd ../client
+cd ../frontend
 npm install
 ```
