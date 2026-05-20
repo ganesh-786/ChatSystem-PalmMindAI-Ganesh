@@ -33,8 +33,8 @@ Ensure you have the following installed locally:
 
 ```bash
 # Clone the repository
-git clone [https://github.com/your-username/my-chat-app.git](https://github.com/your-username/my-chat-app.git)
-cd my-chat-app
+git clone https://github.com/ganesh-786/ChatSystem-PalmMindAI-Ganesh.git](https://github.com/ganesh-786/ChatSystem-PalmMindAI-Ganesh.git)
+cd ChatSystem-PamMindAI-Ganesh
 
 # Install server dependencies
 cd server
