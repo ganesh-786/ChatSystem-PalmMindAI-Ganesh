@@ -1,9 +1,10 @@
-import express from 'express';
-import { User } from '../models/user.js';
+import express from "express";
+import { User } from "../models/user.js";
+import { authenticateToken, requireAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get('/', async (req, res, next) => {
+router.get("/", authenticateToken, async (req, res, next) => {
   try {
     const users = await User.find().lean();
     res.json({ data: users });
@@ -12,12 +13,12 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post("/", authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const { email, name, role } = req.body;
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return res.status(400).json({ error: "Email is required" });
     }
 
     const user = await User.create({ email, name, role });
