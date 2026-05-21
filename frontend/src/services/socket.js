@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const socketUrl = import.meta.env.VITE_SOCKET_URL || "/";
 
 export function createSocket(token) {
   return io(socketUrl, {

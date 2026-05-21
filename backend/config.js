@@ -15,7 +15,7 @@ if (missing.length > 0) {
   );
 }
 
-const port = Number(process.env.PORT || 5000);
+const port = Number(process.env.PORT || 3000);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error("Invalid PORT value in environment configuration");
 }
@@ -35,12 +35,12 @@ function parseDuration(value, fallbackMs) {
 
 const rawClientUrls = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(",").map((value) => value.trim())
-  : ["http://localhost:3100"];
+  : ["http://localhost:5000"];
 
 const allowedOrigins = Array.from(new Set(rawClientUrls));
 
 if (process.env.NODE_ENV !== "production") {
-  allowedOrigins.push("http://localhost:5173");
+  allowedOrigins.push("http://localhost:5173", "http://localhost:5000");
 }
 
 export const config = {

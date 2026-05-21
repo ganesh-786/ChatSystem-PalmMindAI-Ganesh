@@ -18,7 +18,7 @@ const router = express.Router();
 const refreshTokenCookieOptions = {
   httpOnly: true,
   secure: config.isProduction,
-  sameSite: "none",
+  sameSite: config.isProduction ? "none" : "lax",
   maxAge: config.refreshTokenMaxAge,
   path: "/",
 };
@@ -31,7 +31,7 @@ function clearRefreshCookie(res) {
   res.clearCookie("refreshToken", {
     httpOnly: true,
     secure: config.isProduction,
-    sameSite: "none",
+    sameSite: config.isProduction ? "none" : "lax",
     path: "/",
   });
 }

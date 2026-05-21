@@ -17,9 +17,10 @@ export function setupSocket(server) {
 
   // Authentication middleware
   io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
+    const token = socket.handshake.auth?.token;
 
     if (!token) {
+      console.warn("Socket auth failed: missing token");
       return next(new Error("Authentication error"));
     }
 
@@ -29,23 +30,26 @@ export function setupSocket(server) {
       socket.user = await User.findById(decoded.userId);
 
       if (!socket.user) {
-        return next(new Error("User not found"));
+        console.warn("Socket auth failed: user not found", decoded.userId);
+        return next(new Error("Authentication error"));
       }
 
       next();
     } catch (err) {
+      console.warn("Socket auth failed:", err.message);
       next(new Error("Authentication error"));
     }
   });
 
   // Connection handling
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     console.log(`User ${socket.user.name} connected`);
 
     // Update user status to online
-    socket.user.status = "online";
-    socket.user.lastSeen = new Date();
-    socket.user.save();
+    await User.updateOne(
+      { _id: socket.userId },
+      { status: "online", lastSeen: new Date() },
+    );
 
     // Join user to their personal room
     socket.join(`user:${socket.userId}`);
@@ -111,8 +115,10 @@ export function setupSocket(server) {
 
         // Update user typing status
         if (socket.user.isTyping === roomId) {
-          socket.user.isTyping = null;
-          socket.user.save();
+          await User.updateOne(
+            { _id: socket.userId, isTyping: roomId },
+            { $unset: { isTyping: "" } },
+          );
           socket.to(roomId).emit("typing:stopped", {
             userId: socket.userId,
             name: socket.user.name,
@@ -124,10 +130,9 @@ export function setupSocket(server) {
     });
 
     // Handle typing indicators
-    socket.on("typing:start", (roomId) => {
+    socket.on("typing:start", async (roomId) => {
       if (socket.user.isTyping !== roomId) {
-        socket.user.isTyping = roomId;
-        socket.user.save();
+        await User.updateOne({ _id: socket.userId }, { isTyping: roomId });
         socket.to(roomId).emit("typing:started", {
           userId: socket.userId,
           name: socket.user.name,
@@ -135,10 +140,12 @@ export function setupSocket(server) {
       }
     });
 
-    socket.on("typing:stop", (roomId) => {
+    socket.on("typing:stop", async (roomId) => {
       if (socket.user.isTyping === roomId) {
-        socket.user.isTyping = null;
-        socket.user.save();
+        await User.updateOne(
+          { _id: socket.userId, isTyping: roomId },
+          { $unset: { isTyping: "" } },
+        );
         socket.to(roomId).emit("typing:stopped", {
           userId: socket.userId,
           name: socket.user.name,
@@ -172,9 +179,10 @@ export function setupSocket(server) {
       console.log(`User ${socket.user.name} disconnected`);
 
       // Update user status to offline
-      socket.user.status = "offline";
-      socket.user.isTyping = null;
-      await socket.user.save();
+      await User.updateOne(
+        { _id: socket.userId },
+        { status: "offline", $unset: { isTyping: "" } },
+      );
 
       // Notify others that user is offline
       io.emit("user:offline", {
