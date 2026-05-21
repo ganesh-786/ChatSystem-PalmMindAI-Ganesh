@@ -268,22 +268,49 @@ export default function ChatApp({ user, onLogout }) {
               No messages yet. Say hello to the room.
             </div>
           ) : (
-            messages.map((message) => (
-              <article
-                key={message._id || `${message.room}-${message.timestamp}`}
-                className="message-card"
-              >
-                <div className="message-header">
-                  <span className="message-author">
-                    {message.author?.name || "Anonymous"}
-                  </span>
-                  <span className="message-time">
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </span>
+            messages.map((message) => {
+              const userId = user?._id?.toString() || user?.id?.toString();
+              const authorId =
+                message.author?._id?.toString() ||
+                message.author?.id?.toString();
+              const isSender = authorId && userId ? authorId === userId : false;
+
+              return (
+                <div
+                  key={message._id || `${message.room}-${message.timestamp}`}
+                  className={`flex w-full ${isSender ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[70%] flex flex-col ${
+                      isSender ? "items-end" : "items-start"
+                    }`}
+                  >
+                    {!isSender && (
+                      <span className="text-xs font-semibold text-gray-500 mb-1 ml-1">
+                        {message.author?.name || "Anonymous"}
+                      </span>
+                    )}
+
+                    <div
+                      className={`px-4 py-2.5 shadow-sm text-sm break-words ${
+                        isSender
+                          ? "bg-indigo-600 text-white rounded-2xl rounded-tr-none"
+                          : "bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    </div>
+
+                    <span className="mt-1 text-[10px] text-gray-400 px-1">
+                      {new Date(message.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
                 </div>
-                <p>{message.content}</p>
-              </article>
-            ))
+              );
+            })
           )}
           <div ref={messageEndRef} />
         </section>
