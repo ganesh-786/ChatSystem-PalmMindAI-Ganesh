@@ -1,6 +1,6 @@
 # Real-Time Chat & User Management System
 
-A secure, full-stack real-time chat application built with Node.js, Express, MongoDB, Socket.IO, and React. This system includes complete User CRUD operations, JWT authentication, role-based authorization, live messaging capabilities, and real-time dashboard analytics.
+A secure, full-stack real-time chat application built with Node.js, Express, MongoDB, Socket.IO, and React. This system includes complete User CRUD operations, JWT authentication, live messaging capabilities, and real-time dashboard analytics.
 
 ## Demo Video
 
