@@ -2,6 +2,10 @@
 
 A secure, full-stack real-time chat application built with Node.js, Express, MongoDB, Socket.IO, and React. This system includes complete User CRUD operations, JWT authentication, role-based authorization, live messaging capabilities, and real-time dashboard analytics.
 
+## Demo Video
+
+[Watch Demo Video](https://drive.google.com/file/d/19BWHY6x8BeXvo9hZ69idwQbWwt7PK1B_/view?usp=sharing)
+
 ## Tech Stack
 
 - **Backend:** Node.js, Express, TypeScript, MongoDB (Mongoose), Socket.IO
