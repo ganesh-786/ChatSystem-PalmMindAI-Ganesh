@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema(
   {
@@ -6,50 +6,61 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
       maxlength: 5000,
-      trim: true
+      trim: true,
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
-      index: true
+      index: true,
     },
     room: {
       type: String,
       required: true,
-      index: true
+      index: true,
     },
     timestamp: {
       type: Date,
       default: Date.now,
-      index: true
+      index: true,
     },
     edited: {
       type: Boolean,
-      default: false
+      default: false,
     },
     editedAt: {
       type: Date,
-      default: null
+      default: null,
     },
-    readBy: [{
-      user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+    deleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    readBy: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        readAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
-      readAt: {
-        type: Date,
-        default: Date.now
-      }
-    }],
+    ],
     metadata: {
       type: Map,
-      of: mongoose.Schema.Types.Mixed
-    }
+      of: mongoose.Schema.Types.Mixed,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 // Compound index for efficient room-based queries
@@ -59,13 +70,17 @@ messageSchema.index({ room: 1, timestamp: 1 });
 messageSchema.index({ room: 1, timestamp: -1 });
 
 // Virtual for checking if message is read by specific user
-messageSchema.virtual('isRead').get(function() {
-  return this.readBy.some(read => read.user.toString() === this._id.toString());
+messageSchema.virtual("isRead").get(function () {
+  return this.readBy.some(
+    (read) => read.user.toString() === this._id.toString(),
+  );
 });
 
 // Method to mark message as read
-messageSchema.methods.markAsRead = function(userId) {
-  const existingRead = this.readBy.find(read => read.user.toString() === userId.toString());
+messageSchema.methods.markAsRead = function (userId) {
+  const existingRead = this.readBy.find(
+    (read) => read.user.toString() === userId.toString(),
+  );
 
   if (!existingRead) {
     this.readBy.push({ user: userId });
@@ -76,12 +91,13 @@ messageSchema.methods.markAsRead = function(userId) {
 };
 
 // Static method to get recent messages for a room
-messageSchema.statics.getRecentMessages = function(roomId, limit = 50) {
+messageSchema.statics.getRecentMessages = function (roomId, limit = 50) {
   return this.find({ room: roomId })
-    .populate('author', 'name avatar status')
+    .populate("author", "name avatar status")
     .sort({ timestamp: -1 })
     .limit(limit)
     .lean();
 };
 
-export const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+export const Message =
+  mongoose.models.Message || mongoose.model("Message", messageSchema);

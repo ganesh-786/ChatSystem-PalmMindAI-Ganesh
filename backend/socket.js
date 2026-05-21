@@ -4,8 +4,10 @@ import { User } from "./models/user.js";
 import { Message } from "./models/message.js";
 import { config } from "./config.js";
 
+export let io;
+
 export function setupSocket(server) {
-  const io = new Server(server, {
+  io = new Server(server, {
     cors: {
       origin: config.allowedOrigins,
       methods: ["GET", "POST"],

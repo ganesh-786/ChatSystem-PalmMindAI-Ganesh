@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import api from "../services/api.js";
+import api, { updateMessage, deleteMessage } from "../services/api.js";
 import { createSocket, disconnectSocket } from "../services/socket.js";
 
 const DEFAULT_ROOM = "general";
@@ -16,6 +16,8 @@ export default function ChatApp({ user, onLogout }) {
   const [roomName, setRoomName] = useState("");
   const [status, setStatus] = useState("Connecting...");
   const [error, setError] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
   const messageEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const currentRoomRef = useRef(activeRoom);
@@ -52,6 +54,23 @@ export default function ChatApp({ user, onLogout }) {
       }
     });
 
+    client.on("message:updated", (updatedMessage) => {
+      if (updatedMessage.room !== currentRoomRef.current) return;
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)),
+      );
+    });
+
+    client.on("message:deleted", (payload) => {
+      const { messageId, room, deletedAt } = payload;
+      if (room !== currentRoomRef.current) return;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === messageId ? { ...m, deleted: true, deletedAt } : m,
+        ),
+      );
+    });
+
     client.on("message:new", (message) => {
       if (message.room === currentRoomRef.current) {
         setMessages((prev) => [...prev, message]);
@@ -59,16 +78,17 @@ export default function ChatApp({ user, onLogout }) {
     });
 
     client.on("user:online", (payload) => {
+      // Normalize payload to include `_id` for React keys and compatibility with API data
+      const normalized = { ...payload, _id: payload.userId || payload._id };
       setOnlineUsers((prev) => [
-        payload,
-        ...prev.filter((item) => item.userId !== payload.userId),
+        normalized,
+        ...prev.filter((item) => item._id !== normalized._id),
       ]);
     });
 
     client.on("user:offline", (payload) => {
-      setOnlineUsers((prev) =>
-        prev.filter((item) => item.userId !== payload.userId),
-      );
+      const id = payload.userId || payload._id;
+      setOnlineUsers((prev) => prev.filter((item) => item._id !== id));
     });
 
     client.on("typing:started", (payload) => {
@@ -188,6 +208,74 @@ export default function ChatApp({ user, onLogout }) {
     onLogout();
   };
 
+  const startEdit = (message) => {
+    setEditingMessageId(message._id);
+    setEditingText(message.content || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  const submitEdit = async (event) => {
+    event.preventDefault();
+    if (!editingMessageId) return;
+    const newContent = editingText.trim();
+    if (!newContent) return;
+
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) =>
+        m._id === editingMessageId
+          ? {
+              ...m,
+              content: newContent,
+              edited: true,
+              editedAt: new Date().toISOString(),
+            }
+          : m,
+      ),
+    );
+
+    try {
+      await updateMessage(editingMessageId, newContent);
+    } catch (err) {
+      setError("Failed to update message.");
+      // In case of failure, reload messages for the room
+      try {
+        const response = await api.get(`/chat/rooms/${activeRoom}/messages`);
+        setMessages(response.data.data || []);
+      } catch (reloadErr) {
+        console.warn("Failed to reload messages", reloadErr);
+      }
+    } finally {
+      cancelEdit();
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm("Delete this message?")) return;
+
+    // Optimistic mark deleted
+    const previous = messages;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m._id === messageId
+          ? { ...m, deleted: true, deletedAt: new Date().toISOString() }
+          : m,
+      ),
+    );
+
+    try {
+      await deleteMessage(messageId);
+    } catch (err) {
+      setError("Failed to delete message.");
+      // rollback
+      setMessages(previous);
+    }
+  };
+
   return (
     <div className="chat-layout">
       <aside className="chat-sidebar">
@@ -291,22 +379,95 @@ export default function ChatApp({ user, onLogout }) {
                       </span>
                     )}
 
-                    <div
-                      className={`px-4 py-2.5 shadow-sm text-sm break-words ${
-                        isSender
-                          ? "bg-indigo-600 text-white rounded-2xl rounded-tr-none"
-                          : "bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                    </div>
+                    {message.deleted ? (
+                      <>
+                        <div className="px-4 py-2.5 shadow-sm text-sm italic text-gray-500 break-words bg-gray-50 rounded-2xl">
+                          Message deleted
+                        </div>
 
-                    <span className="mt-1 text-[10px] text-gray-400 px-1">
-                      {new Date(message.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+                        <span className="mt-1 text-[10px] text-gray-400 px-1">
+                          {message.deletedAt
+                            ? new Date(message.deletedAt).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )
+                            : new Date(message.timestamp).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )}
+                        </span>
+                      </>
+                    ) : editingMessageId === message._id && isSender ? (
+                      <form onSubmit={submitEdit} className="w-full">
+                        <input
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          className="w-full px-3 py-2 rounded border"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button type="submit" className="btn-primary">
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="btn-secondary"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div
+                          className={`px-4 py-2.5 shadow-sm text-sm break-words ${
+                            isSender
+                              ? "bg-indigo-600 text-white rounded-2xl rounded-tr-none"
+                              : "bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none"
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="mt-1 text-[10px] text-gray-400 px-1">
+                            {new Date(message.timestamp).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </span>
+                          {isSender && (
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(message)}
+                                className="text-xs text-indigo-500 hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMessage(message._id)}
+                                className="text-xs text-red-500 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );

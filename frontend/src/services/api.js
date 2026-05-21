@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL || "/api";
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 const api = axios.create({
   baseURL,
   withCredentials: true,
@@ -83,3 +83,11 @@ export const setAuthToken = (token) => {
 };
 
 export default api;
+
+export const updateMessage = (messageId, content) => {
+  return api.put(`/chat/messages/${messageId}`, { content });
+};
+
+export const deleteMessage = (messageId) => {
+  return api.delete(`/chat/messages/${messageId}`);
+};

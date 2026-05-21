@@ -8,6 +8,7 @@ import {
   validateMessageId,
   validateMessageUpdate,
 } from "../middleware/validators.js";
+import { io } from "../socket.js";
 
 const router = express.Router();
 
@@ -146,7 +147,24 @@ router.delete(
         return res.status(404).json({ error: "Message not found" });
       }
 
-      await Message.findByIdAndDelete(messageId);
+      // Soft-delete the message so analytics and ordering remain intact
+      message.deleted = true;
+      message.deletedAt = new Date();
+      await message.save();
+
+      // Notify room members in real-time
+      try {
+        if (io) {
+          io.to(message.room).emit("message:deleted", {
+            messageId: message._id,
+            room: message.room,
+            deletedAt: message.deletedAt,
+            author: message.author,
+          });
+        }
+      } catch (emitErr) {
+        console.warn("Failed to emit message:deleted", emitErr);
+      }
 
       res.json({ message: "Message deleted successfully" });
     } catch (error) {
@@ -179,6 +197,18 @@ router.put(
       message.edited = true;
       message.editedAt = new Date();
       await message.save();
+
+      // Populate author for consistent payload
+      await message.populate("author", "name avatar status");
+
+      // Emit updated message to room
+      try {
+        if (io) {
+          io.to(message.room).emit("message:updated", message);
+        }
+      } catch (emitErr) {
+        console.warn("Failed to emit message:updated", emitErr);
+      }
 
       res.json({
         message: "Message updated successfully",
